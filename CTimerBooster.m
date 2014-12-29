@@ -133,6 +133,8 @@ static CTimerBooster *sharedManager = nil;
 
 - (void)timerMaker
 {
+    [self lock];
+    
     static NSOperationQueue *queue = nil;
     if (queue == nil) {
         queue = [[NSOperationQueue alloc]init];
@@ -151,6 +153,8 @@ static CTimerBooster *sharedManager = nil;
             }
         }
     }
+    
+    [self unlock];
 }
 
 - (void)runWithTarget:(NSTimerBoosterTarget *)target
@@ -166,14 +170,15 @@ static CTimerBooster *sharedManager = nil;
         targets = [NSMutableArray array];
     }
     
-    // Check
-    NSString *className = NSStringFromClass([target class]);
-    NSString *selName = NSStringFromSelector(selector);
-    for (NSTimerBoosterTarget *ft in targets) {
-        NSString *_className = NSStringFromClass([ft.target class]);
-        NSString *_selName = NSStringFromSelector(ft.selector);
+    for (int i = 0; i < targets.count; i ++) {
+        // 移除Selector
+        NSTimerBoosterTarget *ftg = targets[i];
+        NSString *className = NSStringFromClass([target class]);
+        NSString *selName = NSStringFromSelector(ftg.selector);
+        NSString *_selName = NSStringFromSelector(selector);
+        NSString *_className = NSStringFromClass([ftg.target class]);
         
-        if ([className isEqualToString:_className] && [selName isEqualToString:_selName] && ft.target == target) {
+        if ([className isEqualToString:_className] && ftg.target == target && [_selName isEqualToString:selName]) {
             NSLog(@"NSTimerBoosterTarget [%@, %@] ALREADY ADDED",className, selName);
             [self unlock];
             return;
@@ -194,24 +199,24 @@ static CTimerBooster *sharedManager = nil;
 {
     [self lock];
     
-    NSTimerBoosterTarget *removeTarget = nil;
-    for (NSTimerBoosterTarget *ftg in targets) {
+    for (int i = 0; i < targets.count; i ++) {
         // 移除Selector
+        NSTimerBoosterTarget *ftg = targets[i];
+        NSString *className = NSStringFromClass([target class]);
         NSString *selName = NSStringFromSelector(ftg.selector);
         NSString *_selName = NSStringFromSelector(selector);
+        NSString *_className = NSStringFromClass([ftg.target class]);
         
-        if (ftg.target == target && [_selName isEqualToString:selName]) {
+        if ([className isEqualToString:_className] && ftg.target == target && [_selName isEqualToString:selName]) {
             ftg.target = nil;
             ftg.selector = nil;
             ftg.time = 0;
             ftg.tick = 0;
-            removeTarget = ftg;
+            [targets removeObject:ftg];
             break;
         }
     }
-    // Remove selected item
-    [targets removeObject:removeTarget];
-    
+
     [self unlock];
 }
 
